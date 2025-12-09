@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bet Limit Configuration (Baccarat)</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    // Lucide Icons Components
+    const Search = (props) => React.createElement('i', { 'data-lucide': 'search', ...props });
+    const Save = (props) => React.createElement('i', { 'data-lucide': 'save', ...props });
+    const Plus = (props) => React.createElement('i', { 'data-lucide': 'plus', ...props });
+    const AlertCircle = (props) => React.createElement('i', { 'data-lucide': 'alert-circle', ...props });
+    const Calculator = (props) => React.createElement('i', { 'data-lucide': 'calculator', ...props });
+    const Info = (props) => React.createElement('i', { 'data-lucide': 'info', ...props });
+    const RefreshCw = (props) => React.createElement('i', { 'data-lucide': 'refresh-cw', ...props });
+    const Lock = (props) => React.createElement('i', { 'data-lucide': 'lock', ...props });
+    const Shuffle = (props) => React.createElement('i', { 'data-lucide': 'shuffle', ...props });
+
+    // --- Constants & Mock Data ---
+
+const WEBSITES = ['Gamelobby', 'Sportsbook', 'LiveCasino_A', 'LiveCasino_B'];
+const CURRENCIES = ['USD', 'CNY', 'HKD', 'JPY', 'TWD', 'SGD'];
+
+// Mock server data: Currency Minimum Chip Defaults
+const MIN_CHIP_DEFAULTS = {
+  USD: 5,
+  CNY: 20,
+  HKD: 20,
+  JPY: 500,
+  TWD: 100,
+  SGD: 10
+};
+
+// Minimum Limit Calculation Ratios
+const MIN_RATIOS = {
+  bp: 100, tie: 10, pair: 10, bonus: 10, bigSmall: 100, anyPair: 10, perfectPair: 10, superSix: 10,
+};
+
+// Maximum Limit Calculation Ratios
+const MAX_RATIOS = {
+  bp: 100, tie: 10, pair: 9, bonus: 9, bigSmall: 100, anyPair: 20, perfectPair: 4, superSix: 8,
+};
+
+// Mock Initial Data - IDs start from 10001 (5 digits)
+const MOCK_DATA = [
+  // LiveCasino_A examples
+  {
+    id: '10001', website: 'LiveCasino_A', currency: 'USD', minChip: 5, status: 'Enable',
+    limits: { bp: { min: 100, max: 10000 }, tie: { min: 10, max: 1000 }, pair: { min: 10, max: 900 }, bonus: { min: 10, max: 900 }, bigSmall: { min: 100, max: 10000 }, anyPair: { min: 10, max: 2000 }, perfectPair: { min: 10, max: 400 }, superSix: { min: 10, max: 800 } },
+  },
+  {
+    id: '10002', website: 'LiveCasino_A', currency: 'CNY', minChip: 20, status: 'Disable',
+    limits: { bp: { min: 500, max: 50000 }, tie: { min: 50, max: 5000 }, pair: { min: 50, max: 4500 }, bonus: { min: 50, max: 4500 }, bigSmall: { min: 500, max: 50000 }, anyPair: { min: 50, max: 10000 }, perfectPair: { min: 50, max: 2000 }, superSix: { min: 50, max: 4000 } },
+  },
+
+  // LiveCasino_B examples
+  {
+    id: '10003', website: 'LiveCasino_B', currency: 'HKD', minChip: 20, status: 'Enable',
+    limits: { bp: { min: 200, max: 20000 }, tie: { min: 20, max: 2000 }, pair: { min: 20, max: 1800 }, bonus: { min: 20, max: 1800 }, bigSmall: { min: 200, max: 20000 }, anyPair: { min: 20, max: 4000 }, perfectPair: { min: 20, max: 800 }, superSix: { min: 20, max: 1600 } },
+  },
+  {
+    id: '10004', website: 'LiveCasino_B', currency: 'JPY', minChip: 500, status: 'Disable',
+    limits: { bp: { min: 1000, max: 100000 }, tie: { min: 100, max: 10000 }, pair: { min: 100, max: 9000 }, bonus: { min: 100, max: 9000 }, bigSmall: { min: 1000, max: 100000 }, anyPair: { min: 100, max: 20000 }, perfectPair: { min: 100, max: 8000 }, superSix: { min: 100, max: 16000 } },
+  },
+
+  // Sportsbook examples
+  {
+    id: '10005', website: 'Sportsbook', currency: 'SGD', minChip: 10, status: 'Enable',
+    limits: { bp: { min: 50, max: 5000 }, tie: { min: 5, max: 500 }, pair: { min: 5, max: 450 }, bonus: { min: 5, max: 450 }, bigSmall: { min: 50, max: 5000 }, anyPair: { min: 5, max: 1000 }, perfectPair: { min: 5, max: 200 }, superSix: { min: 5, max: 400 } },
+  },
+  {
+    id: '10006', website: 'Sportsbook', currency: 'TWD', minChip: 100, status: 'Enable',
+    limits: { bp: { min: 500, max: 50000 }, tie: { min: 50, max: 5000 }, pair: { min: 50, max: 4500 }, bonus: { min: 50, max: 4500 }, bigSmall: { min: 500, max: 50000 }, anyPair: { min: 50, max: 10000 }, perfectPair: { min: 50, max: 2000 }, superSix: { min: 50, max: 4000 } },
+  },
+
+  // Gamelobby examples
+  {
+    id: '10007', website: 'Gamelobby', currency: 'USD', minChip: 5, status: 'Enable',
+    limits: { bp: { min: 80, max: 8000 }, tie: { min: 8, max: 800 }, pair: { min: 8, max: 720 }, bonus: { min: 8, max: 720 }, bigSmall: { min: 80, max: 8000 }, anyPair: { min: 8, max: 1600 }, perfectPair: { min: 8, max: 320 }, superSix: { min: 8, max: 640 } },
+  },
+  {
+    id: '10008', website: 'Gamelobby', currency: 'CNY', minChip: 20, status: 'Disable',
+    limits: { bp: { min: 400, max: 40000 }, tie: { min: 40, max: 4000 }, pair: { min: 40, max: 3600 }, bonus: { min: 40, max: 3600 }, bigSmall: { min: 400, max: 40000 }, anyPair: { min: 40, max: 8000 }, perfectPair: { min: 40, max: 1600 }, superSix: { min: 40, max: 3200 } },
+  },
+  {
+    id: '10009', website: 'Gamelobby', currency: 'TWD', minChip: 100, status: 'Disable',
+    limits: { bp: { min: 1000, max: 10000 }, tie: { min: 100, max: 1000 }, pair: { min: 100, max: 900 }, bonus: { min: 100, max: 900 }, bigSmall: { min: 1000, max: 10000 }, anyPair: { min: 100, max: 2000 }, perfectPair: { min: 100, max: 400 }, superSix: { min: 100, max: 800 } },
+  }
+];
+
+// --- Helper Functions ---
+
+/** Converts a number to a localized string with commas. */
+const formatNumber = (num) => {
+  if (num === '' || num === undefined || num === null || isNaN(num)) return '';
+  // Convert to number for proper formatting
+  return Number(num).toLocaleString('en-US'); 
+};
+
+/** Parses a comma-separated string back to a pure number (or empty string). */
+const parseNumber = (str) => {
+  if (!str) return '';
+  // 1. Remove commas and non-digit characters
+  const cleanStr = str.toString().replace(/[^0-9]/g, ''); 
+  if (cleanStr === '') return '';
+  
+  const parsed = Number(cleanStr);
+  // Return the number or empty string
+  return isNaN(parsed) ? '' : parsed; 
+};
+
+/** Extracts the numeric part of the ID and calculates the next sequential 5-digit ID. */
+const getNextBetLimitId = (currentData) => {
+  let maxIdNum = 10000; // Start at 10000 for 5 digits
+
+  currentData.forEach(item => {
+    // Attempt to parse the ID as a number
+    const numPart = parseInt(item.id, 10); 
+    
+    // Check if it's a valid 5-digit ID or greater
+    if (!isNaN(numPart) && numPart >= 10000 && numPart > maxIdNum) {
+      maxIdNum = numPart;
+    }
+  });
+
+  return (maxIdNum + 1).toString(); // Return as a string, e.g., "10003"
+};
+
+
+// --- Components ---
+
+const LimitInputGroup = ({ title, minVal, maxVal, onMinChange, onMaxChange, isMain = false, minChipLimit, minRatio, maxRatio, baseMinLimit, disabled = false }) => {
+  const min = parseNumber(minVal);
+  const max = parseNumber(maxVal);
+  
+  // Calculate the expected base min for this bet type based on ratio
+  const calculatedBaseMin = baseMinLimit && baseMinLimit !== '' ? Math.floor(Number(baseMinLimit) * (minRatio / 100)) : 0;
+  
+  // Only validate if values are entered AND minChipLimit is greater than 0
+  const isMinError = min !== '' && ((minChipLimit > 0 && min < minChipLimit) || (calculatedBaseMin > 0 && min < calculatedBaseMin));
+  const isMaxError = max !== '' && ((calculatedBaseMin > 0 && max < calculatedBaseMin) || (min !== '' && max < min));
+
+  return (
+    <div className={`flex flex-col p-3 rounded border ${isMain ? 'bg-amber-50 border-amber-200 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
+      {/* Title and Ratios - Fixed height */}
+      <div className={`text-center mb-2 ${isMain ? 'text-amber-800 font-bold' : 'text-gray-500 font-medium'}`}>
+        <div className="text-sm font-semibold h-5 flex items-center justify-center">{title}</div>
+      </div>
+      
+      {/* Min/Max Input Container - Flex grow to push inputs to bottom */}
+      <div className="flex-1 flex flex-col justify-end gap-2">
+        {/* Min Limit Input */}
+        <div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-500 w-8 text-right font-semibold">Min<br/>{minRatio}%</span>
+            <input
+              type="text"
+              value={formatNumber(minVal)}
+              onChange={(e) => onMinChange(parseNumber(e.target.value))}
+              readOnly={disabled}
+              disabled={disabled}
+              className={`w-full text-right p-1.5 text-sm border rounded focus:ring-1 focus:outline-none transition-all
+                ${isMain ? 'border-amber-300 focus:border-amber-500' : 'border-gray-300 focus:border-blue-500'}
+                ${isMinError ? 'border-red-500 bg-red-50 focus:ring-red-200' : ''}
+                ${disabled ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}
+              `}
+              placeholder=""
+            />
+          </div>
+          <div className="h-3.5 mt-0.5">
+            {isMinError && (
+              <div className="text-[9px] text-red-600 leading-tight text-right pl-8 font-medium">
+                {min < minChipLimit ? 'Must be ≥ Min Chip' : 'Must be ≥ Base Min'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Max Limit Input */}
+        <div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-500 w-8 text-right font-semibold">Max<br/>{maxRatio}%</span>
+            <input
+              type="text"
+              value={formatNumber(maxVal)}
+              onChange={(e) => onMaxChange(parseNumber(e.target.value))}
+              readOnly={disabled}
+              disabled={disabled}
+              className={`w-full text-right p-1.5 text-sm border rounded focus:ring-1 focus:outline-none transition-all
+                ${isMain ? 'border-amber-300 focus:border-amber-500' : 'border-gray-300 focus:border-blue-500'}
+                ${isMaxError ? 'border-red-500 bg-red-50 focus:ring-red-200' : ''}
+                ${disabled ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''}
+              `}
+              placeholder=""
+            />
+          </div>
+          <div className="h-3.5 mt-0.5">
+            {isMaxError && (
+              <div className="text-[9px] text-red-600 leading-tight text-right pl-8 font-medium">
+                {min !== '' && max < min ? 'Must be ≥ Min Limit' : 'Must be ≥ Base Min'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- 新增：建立/修改 Bet Limit 模式切換元件 ---
+const GAME_LIST = [
+  { key: 'baccarat', label: 'Baccarat' },
+  { key: 'roulette', label: 'Roulette' },
+  { key: 'thaihilo', label: 'ThaiHiLo' },
+  { key: 'extrasicbo', label: 'ExtraSicbo' },
+  { key: 'dragonTiger', label: 'Dragon Tiger' },
+  { key: 'fishPrawnCrab', label: 'ThaiFishPrawnCrab' },
+  { key: 'sedie', label: 'Sedie' },
+  { key: 'pokdeng', label: 'PokDeng' },
+];
+
+function BetLimitCreateModifyPage({ data, setData, showNotification }) {
+  const [mode, setMode] = React.useState('single'); // 'single' | 'batch'
+  const [selectedGame, setSelectedGame] = React.useState(GAME_LIST[0].key);
+  const [betLimitId, setBetLimitId] = React.useState('');
+  const [formState, setFormState] = React.useState({}); // { [gameKey]: { ...欄位 } }
+
+  // 切換模式時重置狀態
+  React.useEffect(() => {
+    setFormState({});
+    setBetLimitId('');
+    setSelectedGame(GAME_LIST[0].key);
+  }, [mode]);
+
+  // 單一遊戲表單
+  const renderSingleForm = () => (
+    <div className="space-y-4">
+      <div className="flex gap-4 items-center">
+        <label className="font-bold">選擇遊戲：</label>
+        <select value={selectedGame} onChange={e => setSelectedGame(e.target.value)} className="border rounded p-1">
+          {GAME_LIST.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+        </select>
+        <label className="font-bold ml-6">Bet Limit ID：</label>
+        <input value={betLimitId} onChange={e => setBetLimitId(e.target.value)} className="border rounded p-1 w-32" placeholder="必填" />
+      </div>
+      <div className="mt-2">
+        {/* 這裡可根據 selectedGame 顯示對應欄位，範例只顯示一個欄位 */}
+        <input className="border rounded p-1 w-64" placeholder={`請輸入 ${GAME_LIST.find(g=>g.key===selectedGame).label} 限紅...`} />
+      </div>
+      <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={() => showNotification('單一遊戲存檔（範例）')}>儲存</button>
+    </div>
+  );
+
+  // 批次表單（同一ID全部遊戲）
+  const renderBatchForm = () => (
+    <div className="space-y-4">
+      <div className="flex gap-4 items-center">
+        <label className="font-bold">Bet Limit ID：</label>
+        <input value={betLimitId} onChange={e => setBetLimitId(e.target.value)} className="border rounded p-1 w-32" placeholder="必填" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {GAME_LIST.map(game => (
+          <div key={game.key} className="border rounded p-4 bg-gray-50">
+            <div className="font-bold mb-2">{game.label}</div>
+            {/* 這裡可根據遊戲顯示不同欄位，範例只顯示一個欄位 */}
+            <input className="border rounded p-1 w-64" placeholder={`請輸入 ${game.label} 限紅...`} />
+          </div>
+        ))}
+      </div>
+      <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={() => showNotification('批次存檔（範例）')}>批次儲存</button>
+    </div>
+  );
+
+  return (
+    <div className="p-6 bg-white rounded shadow mb-8">
+      <div className="flex gap-6 mb-6">
+        <label className="font-bold">操作模式：</label>
+        <label><input type="radio" name="mode" value="single" checked={mode==='single'} onChange={()=>setMode('single')} /> 單一遊戲</label>
+        <label><input type="radio" name="mode" value="batch" checked={mode==='batch'} onChange={()=>setMode('batch')} /> 同ID全部遊戲</label>
+      </div>
+      {mode === 'single' ? renderSingleForm() : renderBatchForm()}
+    </div>
+  );
+}
+
+// 新增：Bet Limit 建立/修改元件（依照附圖欄位，支援單一遊戲/同ID全部遊戲切換）
+const GAME_CONFIGS = [
+  { key: 'baccarat', label: 'Baccarat', fields: [
+    { name: 'BP', min: 'Min', max: 'Max' },
+    { name: 'Tie', min: 'Min', max: 'Max' },
+    { name: 'Pair', min: 'Min', max: 'Max' },
+    { name: 'Bonus', min: 'Min', max: 'Max' },
+    { name: 'Big/Small', min: 'Min', max: 'Max' },
+    { name: 'Any Pair', min: 'Min', max: 'Max' },
+    { name: 'Perfect Pair', min: 'Min', max: 'Max' },
+    { name: 'Super Six', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'dragonTiger', label: 'Dragon Tiger', fields: [
+    { name: 'DT', min: 'Min', max: 'Max' },
+    { name: 'Tie', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'roulette', label: 'Roulette', fields: [
+    { name: 'Bet', min: 'Min', max: 'Max' },
+    { name: 'Direct', min: 'Min', max: 'Max' },
+    { name: 'Separate', min: 'Min', max: 'Max' },
+    { name: 'Street', min: 'Min', max: 'Max' },
+    { name: 'Triangle', min: 'Min', max: 'Max' },
+    { name: 'Corner', min: 'Min', max: 'Max' },
+    { name: 'FourNumbers', min: 'Min', max: 'Max' },
+    { name: 'Line', min: 'Min', max: 'Max' },
+    { name: 'Column', min: 'Min', max: 'Max' },
+    { name: 'Dozen', min: 'Min', max: 'Max' },
+    { name: 'Red/Black', min: 'Min', max: 'Max' },
+    { name: 'Odd/Even', min: 'Min', max: 'Max' },
+    { name: 'Big/Small', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'thaihilo', label: 'ThaiHiLo', fields: [
+    { name: 'Hi', min: 'Min', max: 'Max' },
+    { name: 'Lo', min: 'Min', max: 'Max' },
+    { name: 'ElevenHiLo', min: 'Min', max: 'Max' },
+    { name: 'PPair', min: 'Min', max: 'Max' },
+    { name: 'PAllOdd', min: 'Min', max: 'Max' },
+    { name: 'PAllEven', min: 'Min', max: 'Max' },
+    { name: 'PAllBig', min: 'Min', max: 'Max' },
+    { name: 'PAllSmall', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'fishPrawnCrab', label: 'ThaiFishPrawnCrab', fields: [
+    { name: 'Bet', min: 'Min', max: 'Max' },
+    { name: 'Panel', min: 'Min', max: 'Max' },
+    { name: 'Panel2', min: 'Min', max: 'Max' },
+    { name: 'Panel3', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'extrasicbo', label: 'ExtraSicbo', fields: [
+    { name: 'Bet', min: 'Min', max: 'Max' },
+    { name: 'Big/Small', min: 'Min', max: 'Max' },
+    { name: 'Odd/Even', min: 'Min', max: 'Max' },
+    { name: 'Single', min: 'Min', max: 'Max' },
+    { name: 'Double', min: 'Min', max: 'Max' },
+    { name: 'Triple', min: 'Min', max: 'Max' },
+    { name: 'AnyTriple', min: 'Min', max: 'Max' },
+    { name: '4And17', min: 'Min', max: 'Max' },
+    { name: '5And16', min: 'Min', max: 'Max' },
+    { name: '6And15', min: 'Min', max: 'Max' },
+    { name: '7And14', min: 'Min', max: 'Max' },
+    { name: '8And13', min: 'Min', max: 'Max' },
+    { name: '9And12', min: 'Min', max: 'Max' },
+    { name: '10And11', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'sedie', label: 'Sedie', fields: [
+    { name: 'Bet', min: 'Min', max: 'Max' },
+    { name: 'Big/Small', min: 'Min', max: 'Max' },
+    { name: 'Odd/Even', min: 'Min', max: 'Max' },
+    { name: '4R', min: 'Min', max: 'Max' },
+    { name: '4W', min: 'Min', max: 'Max' },
+    { name: '3R1W', min: 'Min', max: 'Max' },
+    { name: '2R2W', min: 'Min', max: 'Max' },
+    { name: '1R3W', min: 'Min', max: 'Max' },
+    { name: '4W', min: 'Min', max: 'Max' },
+  ] },
+  { key: 'pokdeng', label: 'PokDeng', fields: [
+    { name: 'Bet', min: 'Min', max: 'Max' },
+    { name: 'SeatA', min: 'Min', max: 'Max' },
+    { name: 'SeatB', min: 'Min', max: 'Max' },
+    { name: 'SeatC', min: 'Min', max: 'Max' },
+  ] },
+];
+
+function BetLimitForm() {
+  const [mode, setMode] = React.useState('single'); // 'single' | 'batch'
+  const [selectedGame, setSelectedGame] = React.useState(GAME_CONFIGS[0].key);
+  const [betLimitId, setBetLimitId] = React.useState('');
+  const [currency, setCurrency] = React.useState('');
+  const [fields, setFields] = React.useState({}); // { [gameKey]: { [field]: { min: '', max: '' } } }
+
+  // 初始化 fields 狀態
+  React.useEffect(() => {
+    if (mode === 'single') {
+      setFields({ [selectedGame]: {} });
+    } else {
+      const batchFields = {};
+      GAME_CONFIGS.forEach(g => { batchFields[g.key] = {}; });
+      setFields(batchFields);
+    }
+  }, [mode, selectedGame]);
+
+  // 單一遊戲表單
+  const renderSingleForm = () => {
+    const game = GAME_CONFIGS.find(g => g.key === selectedGame);
+    return (
+      <div className="space-y-4">
+        <div className="flex gap-4 items-center">
+          <label className="font-bold">遊戲：</label>
+          <select value={selectedGame} onChange={e => setSelectedGame(e.target.value)} className="border rounded p-1">
+            {GAME_CONFIGS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+          </select>
+          <label className="font-bold ml-6">Bet Limit ID：</label>
+          <input value={betLimitId} onChange={e => setBetLimitId(e.target.value)} className="border rounded p-1 w-32" placeholder="必填" />
+          <label className="font-bold ml-6">幣別：</label>
+          <input value={currency} onChange={e => setCurrency(e.target.value)} className="border rounded p-1 w-24" placeholder="USD" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {game.fields.map(f => (
+            <div key={f.name} className="flex flex-col border rounded p-2 bg-gray-50">
+              <label className="text-xs font-semibold mb-1">{f.name}</label>
+              <div className="flex gap-2">
+                <input className="border rounded p-1 w-20" placeholder="Min" value={fields[selectedGame]?.[f.name]?.min||''} onChange={e => setFields(fs => ({ ...fs, [selectedGame]: { ...fs[selectedGame], [f.name]: { ...fs[selectedGame]?.[f.name], min: e.target.value } } }))} />
+                <input className="border rounded p-1 w-20" placeholder="Max" value={fields[selectedGame]?.[f.name]?.max||''} onChange={e => setFields(fs => ({ ...fs, [selectedGame]: { ...fs[selectedGame], [f.name]: { ...fs[selectedGame]?.[f.name], max: e.target.value } } }))} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={() => alert('單一遊戲存檔（範例）')}>儲存</button>
+      </div>
+    );
+  };
+
+  // 批次表單
+  const renderBatchForm = () => (
+    <div className="space-y-4">
+      <div className="flex gap-4 items-center">
+        <label className="font-bold">Bet Limit ID：</label>
+        <input value={betLimitId} onChange={e => setBetLimitId(e.target.value)} className="border rounded p-1 w-32" placeholder="必填" />
+        <label className="font-bold ml-6">幣別：</label>
+        <input value={currency} onChange={e => setCurrency(e.target.value)} className="border rounded p-1 w-24" placeholder="USD" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {GAME_CONFIGS.map(game => (
+          <div key={game.key} className="border rounded p-4 bg-gray-50">
+            <div className="font-bold mb-2">{game.label}</div>
+            <div className="grid grid-cols-2 gap-2">
+              {game.fields.map(f => (
+                <div key={f.name} className="flex flex-col">
+                  <label className="text-xs font-semibold mb-1">{f.name}</label>
+                  <div className="flex gap-2">
+                    <input className="border rounded p-1 w-20" placeholder="Min" value={fields[game.key]?.[f.name]?.min||''} onChange={e => setFields(fs => ({ ...fs, [game.key]: { ...fs[game.key], [f.name]: { ...fs[game.key]?.[f.name], min: e.target.value } } }))} />
+                    <input className="border rounded p-1 w-20" placeholder="Max" value={fields[game.key]?.[f.name]?.max||''} onChange={e => setFields(fs => ({ ...fs, [game.key]: { ...fs[game.key], [f.name]: { ...fs[game.key]?.[f.name], max: e.target.value } } }))} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={() => alert('批次存檔（範例）')}>批次儲存</button>
+    </div>
+  );
+
+  return (
+    <div className="p-6 bg-white rounded shadow mb-8">
+      <div className="flex gap-6 mb-6">
+        <label className="font-bold">操作模式：</label>
+        <label><input type="radio" name="mode" value="single" checked={mode==='single'} onChange={()=>setMode('single')} /> 單一遊戲</label>
+        <label><input type="radio" name="mode" value="batch" checked={mode==='batch'} onChange={()=>setMode('batch')} /> 同ID全部遊戲</label>
+      </div>
+      {mode === 'single' ? renderSingleForm() : renderBatchForm()}
+    </div>
+  );
+}
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('search'); // 'search' | 'create'
+  const [data, setData] = useState(MOCK_DATA);
+  const [notification, setNotification] = useState(null);
+  const notificationTimerRef = useRef(null);
+
+  // --- Create Form State ---
+  const initialLimits = {
+      bp: { min: '', max: '' }, tie: { min: '', max: '' }, pair: { min: '', max: '' },
+      bonus: { min: '', max: '' }, bigSmall: { min: '', max: '' }, anyPair: { min: '', max: '' },
+      perfectPair: { min: '', max: '' }, superSix: { min: '', max: '' },
+  };
+
+  const [newLimit, setNewLimit] = useState({
+    id: '',
+    website: '',
+    currency: '', // Currency defaults to empty
+    minChip: 0, // Initialized to 0, updated when currency is selected
+    limits: initialLimits,
+  });
+  
+  // Auto Calc inputs for Create Form
+  const [baseMin, setBaseMin] = useState(''); // Base min limit (pure number input)
+  const [baseMax, setBaseMax] = useState(''); // Base max limit (pure number input)
+
+  // --- Search State ---
+  const [searchFilters, setSearchFilters] = useState({
+    id: '',
+    website: '',
+    currency: ''
+  });
+  const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Ensure lucide replaces <i data-lucide> elements with SVG after render
+  useEffect(() => {
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      try {
+        window.lucide.createIcons();
+      } catch (e) {
+        // swallow errors - lucide availability can be intermittent in dev
+        // console.warn('lucide.createIcons failed', e);
+      }
+    }
+  }, [activeTab, searchResults]);
+
+  // --- Notification Helper ---
+  const showNotification = (msg, type = 'success', autoDismiss = true) => {
+    // clear any existing timer
+    if (notificationTimerRef.current) {
+      clearTimeout(notificationTimerRef.current);
+      notificationTimerRef.current = null;
+    }
+
+    setNotification({ msg, type, autoDismiss });
+
+    if (autoDismiss) {
+      notificationTimerRef.current = setTimeout(() => {
+        setNotification(null);
+        notificationTimerRef.current = null;
+      }, 3000);
+    }
+  };
+
+  // --- Logic: Simulate Server Min Chip Fetch ---
+  useEffect(() => {
+    if (activeTab === 'create' && newLimit.currency) {
+        // Only update minChip if a currency is selected
+        const serverMinChip = MIN_CHIP_DEFAULTS[newLimit.currency] || 0;
+        setNewLimit(prev => ({ ...prev, minChip: serverMinChip }));
+    } else if (activeTab === 'create' && !newLimit.currency) {
+        // When currency is empty, set minChip to 0 for validation purposes
+        setNewLimit(prev => ({ ...prev, minChip: 0 }));
+    }
+  }, [newLimit.currency, activeTab]);
+
+  // --- Logic: Generate ID ---
+  const generateId = () => {
+    const nextId = getNextBetLimitId(data);
+    setNewLimit(prev => ({ ...prev, id: nextId }));
+  };
+
+  // --- Logic: Auto Calculation ---
+  const handleBaseValueChange = (type, value) => {
+    const numVal = parseNumber(value);
+    
+    // The value to use for calculation (use 0 if input is empty)
+    const baseValue = numVal !== '' ? Number(numVal) : 0;
+    
+    // Select the correct ratio map
+    const ratios = type === 'min' ? MIN_RATIOS : MAX_RATIOS;
+
+    if (type === 'min') setBaseMin(numVal);
+    else setBaseMax(numVal);
+
+    // Auto-fill logic
+    const updatedLimits = { ...newLimit.limits };
+    Object.keys(ratios).forEach(key => {
+      const ratio = ratios[key] / 100;
+      const calculatedValue = Math.floor(baseValue * ratio);
+      
+      if (type === 'min') {
+        // Use empty string if base input is empty, prevents showing 0
+        updatedLimits[key].min = numVal === '' ? '' : calculatedValue;
+      } else {
+        updatedLimits[key].max = numVal === '' ? '' : calculatedValue;
+      }
+    });
+    setNewLimit(prev => ({ ...prev, limits: updatedLimits }));
+  };
+  
+  // --- Logic: Create ---
+  const handleCreateSubmit = () => {
+    // Basic validation
+    if (!newLimit.website) return showNotification('Please select a Website.', 'error');
+    if (!newLimit.currency) return showNotification('Please select a Currency.', 'error');
+    // If user provided an ID, ensure it's unique
+    if (newLimit.id) {
+      const exists = data.some(d => String(d.id).toLowerCase() === String(newLimit.id).toLowerCase());
+      if (exists) return showNotification('Bet Limit ID already exists. Please choose another ID or leave empty to auto-generate.', 'error', false);
+    }
+    
+    // Use the Min Chip value from the defaults if currency is selected, otherwise use the temporary 0 value
+    const currentMinChip = newLimit.currency ? MIN_CHIP_DEFAULTS[newLimit.currency] : 0;
+
+    // Validate Min/Max logic and required B/P limits
+    let hasError = false;
+    let missingValue = false;
+    
+    Object.entries(newLimit.limits).forEach(([key, val]) => {
+        const minValNum = parseNumber(val.min) === '' ? null : Number(parseNumber(val.min));
+        const maxValNum = parseNumber(val.max) === '' ? null : Number(parseNumber(val.max));
+
+        // Ensure Banker/Player limits are not empty
+        if (key === 'bp' && (minValNum === null || maxValNum === null)) {
+            missingValue = true;
+        }
+
+        // Check if Min ≥ Min Chip (using the dynamically fetched value)
+        if (minValNum !== null && minValNum < currentMinChip) hasError = true;
+
+        // Check if Max ≥ Min
+        if (minValNum !== null && maxValNum !== null && maxValNum < minValNum) hasError = true;
+    });
+
+    if (missingValue) return showNotification('Banker/Player limits cannot be empty.', 'error');
+    if (hasError) return showNotification('Please correct the errors in the limit fields (Min must be ≥ Min Chip, Max must be ≥ Min).', 'error');
+    
+    const finalId = newLimit.id || getNextBetLimitId(data);
+
+    // Prepare payload for saving
+    const payload = {
+      ...newLimit,
+      id: finalId,
+      status: 'Enable',
+      // Ensure the minChip saved is the correct one based on currency
+      minChip: currentMinChip, 
+    };
+
+    // Convert limits to numbers (or empty string if empty)
+    const limitsToSave = JSON.parse(JSON.stringify(newLimit.limits));
+    Object.keys(limitsToSave).forEach(key => {
+        limitsToSave[key].min = parseNumber(limitsToSave[key].min) !== '' ? Number(parseNumber(limitsToSave[key].min)) : '';
+        limitsToSave[key].max = parseNumber(limitsToSave[key].max) !== '' ? Number(parseNumber(limitsToSave[key].max)) : '';
+    });
+    payload.limits = limitsToSave;
+
+    setData(prev => [...prev, payload]);
+    showNotification(`Bet Limit ${finalId} created successfully!`);
+    // Reset form
+    setNewLimit({
+      id: '', website: '', currency: '', minChip: 0, limits: initialLimits,
+    });
+    setBaseMin('');
+    setBaseMax('');
+    // 不跳頁，停留在建立頁面
+  };
+
+  // --- Logic: Search ---
+  const handleSearch = () => {
+    if (!searchFilters.id && !searchFilters.website) {
+      showNotification('Website is required for search unless an ID is entered.', 'error');
+      return;
+    }
+
+    let results = data;
+
+    if (searchFilters.id) {
+      results = results.filter(item => item.id.toLowerCase().includes(searchFilters.id.toLowerCase()));
+    } else {
+      results = results.filter(item => item.website === searchFilters.website);
+      if (searchFilters.currency) {
+        results = results.filter(item => item.currency === searchFilters.currency);
+      }
+    }
+
+    results.sort((a, b) => a.id.localeCompare(b.id));
+
+    // Format results: convert numbers back to strings for display in inputs
+    const uiResults = results.map(item => ({
+        ...item,
+        limits: Object.fromEntries(
+            Object.entries(item.limits).map(([key, limit]) => [
+                key,
+                { min: limit.min !== undefined && limit.min !== null ? limit.min : '', 
+                  max: limit.max !== undefined && limit.max !== null ? limit.max : '' }
+            ])
+        )
+    }));
+    
+    setSearchResults(JSON.parse(JSON.stringify(uiResults))); 
+    setHasSearched(true);
+  };
+
+  // Logic: Modify inside Search Results
+  const handleResultChange = (index, fieldPath, value) => {
+    const newResults = [...searchResults];
+    let current = newResults[index];
+    for (let i = 0; i < fieldPath.length - 1; i++) {
+      current = current[fieldPath[i]];
+    }
+    current[fieldPath[fieldPath.length - 1]] = value;
+    setSearchResults(newResults);
+  };
+
+  // Logic: Toggle Status
+  const handleToggleStatus = (index) => {
+    const newResults = [...searchResults];
+    newResults[index].status = newResults[index].status === 'Enable' ? 'Disable' : 'Enable';
+    setSearchResults(newResults);
+  };
+
+  // Logic: Save Modified Row
+  const handleSaveRow = (index) => {
+    const item = searchResults[index];
+    
+    let hasError = false;
+    Object.entries(item.limits).forEach(([key, val]) => {
+        const minValNum = parseNumber(val.min) === '' ? null : Number(parseNumber(val.min));
+        const maxValNum = parseNumber(val.max) === '' ? null : Number(parseNumber(val.max));
+        
+        // Check if Min ≥ Min Chip
+        if (minValNum !== null && minValNum < item.minChip) hasError = true;
+        // Check if Max ≥ Min
+        if (minValNum !== null && maxValNum !== null && maxValNum < minValNum) hasError = true;
+    });
+
+    if (hasError) return showNotification('Save Failed: Please check for errors in the highlighted red fields.', 'error');
+
+    // Prepare payload for saving
+    const savePayload = JSON.parse(JSON.stringify(item));
+    Object.keys(savePayload.limits).forEach(key => {
+        savePayload.limits[key].min = parseNumber(savePayload.limits[key].min) !== '' ? Number(parseNumber(savePayload.limits[key].min)) : '';
+        savePayload.limits[key].max = parseNumber(savePayload.limits[key].max) !== '' ? Number(parseNumber(savePayload.limits[key].max)) : '';
+    });
+
+    const newData = data.map(d => d.id === savePayload.id ? savePayload : d);
+    setData(newData);
+    showNotification(`Bet Limit ${item.id} updated successfully!`);
+  };
+
+  // Logic: Copy a search result row into Create form with a new ID
+  const handleCopyToCreate = (index) => {
+    const item = searchResults[index];
+    if (!item) return showNotification('Unable to copy: source item not found', 'error');
+
+    // Generate a new ID for the copied item
+    const newId = getNextBetLimitId(data);
+
+    // Convert limits for UI (strings) - make sure values are strings for inputs
+    const limitsForForm = JSON.parse(JSON.stringify(item.limits));
+    Object.keys(limitsForForm).forEach(k => {
+      limitsForForm[k].min = limitsForForm[k].min !== undefined && limitsForForm[k].min !== null ? String(limitsForForm[k].min) : '';
+      limitsForForm[k].max = limitsForForm[k].max !== undefined && limitsForForm[k].max !== null ? String(limitsForForm[k].max) : '';
+    });
+
+    // Populate the create form state
+    setNewLimit({
+      id: '', // keep empty so user can generate or auto-generate; we'll set id only when saving, but UI requested auto-new id: generate but keep field empty for user clarity
+      website: item.website,
+      currency: item.currency,
+      minChip: item.minChip || (item.currency ? MIN_CHIP_DEFAULTS[item.currency] : 0),
+      limits: limitsForForm,
+    });
+
+    // Set baseMin/baseMax according to the bp type if available (use bp min/max as base if present)
+    const bpMin = parseNumber(item.limits.bp.min) !== '' ? String(parseNumber(item.limits.bp.min)) : '';
+    const bpMax = parseNumber(item.limits.bp.max) !== '' ? String(parseNumber(item.limits.bp.max)) : '';
+    setBaseMin(bpMin);
+    setBaseMax(bpMax);
+
+    // Switch to create tab
+    setActiveTab('create');
+
+    // Auto-generate and set ID in the input so it is visible but distinct from existing IDs
+    setNewLimit(prev => ({ ...prev, id: newId }));
+
+    showNotification(`Copied ${item.id} to Create form (new ID ${newId})`, 'success');
+  };
+
+  return (
+    // Use max-w-7xl wide container, suitable for admin UI
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans p-6">
+      
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+           <Calculator className="w-8 h-8 text-blue-600" />
+           Bet Limit Configuration (Baccarat)
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">Configure bet limits based on Website and Currency.</p>
+      </div>
+
+      {/* Main Content Card */}
+      <div className="max-w-7xl mx-auto bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden mb-6">
+        
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('search')}
+            className={`flex-1 py-4 px-6 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'search' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Search className="w-4 h-4" /> Search & Modify
+          </button>
+          <button
+            onClick={() => setActiveTab('create')}
+            className={`flex-1 py-4 px-6 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'create' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Plus className="w-4 h-4" /> Create New Bet Limit
+          </button>
+        </div>
+
+        <div className="p-6">
+          {/* Notification */}
+          {notification && (
+            <div className={`mb-4 p-4 rounded-md flex items-center justify-between gap-2 ${notification.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                <div className="text-sm">{notification.msg}</div>
+              </div>
+              <div>
+                <button
+                  onClick={() => { if (notificationTimerRef.current) { clearTimeout(notificationTimerRef.current); notificationTimerRef.current = null; } setNotification(null); }}
+                  className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
+                  aria-label="Close notification"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* === CREATE TAB === */}
+          {activeTab === 'create' && (
+            <div className="space-y-8">
+              {/* Top Form: Basic Information (Desktop 4 columns) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start pb-6 border-b border-gray-100">
+                <div className="col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Website <span className="text-red-500">*</span></label>
+                  {/* Updated Styling for Website Dropdown Placeholder */}
+                  <select 
+                    className={`w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border ${newLimit.website === '' ? 'text-gray-400' : 'text-gray-800'}`}
+                    value={newLimit.website}
+                    onChange={(e) => setNewLimit({ ...newLimit, website: e.target.value })}
+                  >
+                    <option value="" disabled className="text-gray-400">Select Website</option>
+                    {WEBSITES.map(w => <option key={w} value={w} className="text-gray-800">{w}</option>)}
+                  </select>
+                </div>
+                
+                <div className="col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency <span className="text-red-500">*</span></label>
+                  <select 
+                    className={`w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border ${newLimit.currency === '' ? 'text-gray-400' : 'text-gray-800'}`}
+                    value={newLimit.currency}
+                    onChange={(e) => setNewLimit({ ...newLimit, currency: e.target.value })}
+                  >
+                    <option value="" disabled className="text-gray-400">Select Currency</option> 
+                    {CURRENCIES.map(c => <option key={c} value={c} className="text-gray-800">{c}</option>)}
+                  </select>
+                </div>
+
+                <div className="col-span-1 flex flex-col items-start gap-1">
+                    <label className="mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Bet Limit ID (Optional)</label>
+                    <div className="flex w-full gap-2">
+                         <input
+                            type="text"
+                            value={newLimit.id}
+                            onChange={(e) => setNewLimit({ ...newLimit, id: e.target.value })}
+                            placeholder="Leave empty for auto-generate or press Generate"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-blue-500 focus:border-blue-500 focus:outline-none focus:ring-2"
+                        />
+                         <button 
+                            onClick={generateId}
+                            className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+                            title="Generate Next ID"
+                        >
+                            <Shuffle className="w-4 h-4" /> Generate
+                         </button>
+                    </div>
+                </div>
+
+                <div className="bg-gray-100 p-3 rounded-md border border-gray-200 self-stretch">
+                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                     <Lock className="w-3 h-3" /> Currency MIN CHIP
+                   </label>
+                   <div className="flex items-center gap-2">
+                     <span className="text-gray-400 text-xs">Value:</span>
+                     <input 
+                       type="text"
+                       readOnly
+                       className={`w-full bg-transparent border-b border-gray-300 focus:outline-none text-sm font-medium text-gray-500 cursor-not-allowed font-semibold ${!(newLimit.website && newLimit.currency) ? 'opacity-60' : ''}`}
+                       // Display 0 when no currency is selected
+                       value={newLimit.currency ? formatNumber(newLimit.minChip) : formatNumber(0)}
+                     />
+                   </div>
+                   <p className="text-[10px] text-gray-400 mt-1">Min Limit must be ≥ this value.</p>
+                </div>
+              </div>
+
+              {/* Quick Calc Section */}
+              <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                   <RefreshCw className="w-4 h-4 text-blue-600" />
+                   <h3 className="text-sm font-bold text-blue-800">Quick Auto-Calculation</h3>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="w-full sm:w-48">
+                    <label className="text-xs text-blue-600 font-semibold">Base Min Limit (100% Rate)</label>
+                    <input 
+                      type="text" 
+                      className="w-full border border-blue-200 rounded p-2 text-right"
+                      placeholder="e.g. 100"
+                      value={baseMin} 
+                      onChange={(e) => handleBaseValueChange('min', e.target.value)}
+                      readOnly={!(newLimit.website && newLimit.currency)}
+                      disabled={!(newLimit.website && newLimit.currency)}
+                    />
+                  </div>
+                  <div className="w-full sm:w-48">
+                    <label className="text-xs text-blue-600 font-semibold">Base Max Limit (100% Rate)</label>
+                    <input 
+                      type="text" 
+                      className="w-full border border-blue-200 rounded p-2 text-right"
+                      placeholder="e.g. 10,000"
+                      value={baseMax} 
+                      onChange={(e) => handleBaseValueChange('max', e.target.value)}
+                      readOnly={!(newLimit.website && newLimit.currency)}
+                      disabled={!(newLimit.website && newLimit.currency)}
+                    />
+                  </div>
+                  <div className="text-xs text-blue-500 mt-5 sm:mt-0 flex-1">
+                    Entering values here will automatically populate the fields below based on Min/Max Ratios.
+                  </div>
+                </div>
+              </div>
+
+              {/* Limits Matrix */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 mb-3 border-l-4 border-amber-500 pl-2">Limit Configuration</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                  {/* Use LimitInputGroup component and pass all ratio and MinChip values */}
+                  <LimitInputGroup 
+                    title="Banker/Player" isMain={true} minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.bp} maxRatio={MAX_RATIOS.bp}
+                    minVal={newLimit.limits.bp.min} maxVal={newLimit.limits.bp.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, bp: { ...prev.limits.bp, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, bp: { ...prev.limits.bp, max: v } } }))}
+                  />
+                  <LimitInputGroup title="Tie" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.tie} maxRatio={MAX_RATIOS.tie}
+                    minVal={newLimit.limits.tie.min} maxVal={newLimit.limits.tie.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, tie: { ...prev.limits.tie, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, tie: { ...prev.limits.tie, max: v } } }))}
+                  />
+                  <LimitInputGroup title="Pair" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.pair} maxRatio={MAX_RATIOS.pair}
+                    minVal={newLimit.limits.pair.min} maxVal={newLimit.limits.pair.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, pair: { ...prev.limits.pair, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, pair: { ...prev.limits.pair, max: v } } }))}
+                  />
+                   <LimitInputGroup title="Bonus" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.bonus} maxRatio={MAX_RATIOS.bonus}
+                    minVal={newLimit.limits.bonus.min} maxVal={newLimit.limits.bonus.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, bonus: { ...prev.limits.bonus, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, bonus: { ...prev.limits.bonus, max: v } } }))}
+                  />
+                  <LimitInputGroup title="Big/Small" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.bigSmall} maxRatio={MAX_RATIOS.bigSmall}
+                    minVal={newLimit.limits.bigSmall.min} maxVal={newLimit.limits.bigSmall.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, bigSmall: { ...prev.limits.bigSmall, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, bigSmall: { ...prev.limits.bigSmall, max: v } } }))}
+                  />
+                  <LimitInputGroup title="Any Pair" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.anyPair} maxRatio={MAX_RATIOS.anyPair}
+                    minVal={newLimit.limits.anyPair.min} maxVal={newLimit.limits.anyPair.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, anyPair: { ...prev.limits.anyPair, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, anyPair: { ...prev.limits.anyPair, max: v } } }))}
+                  />
+                  <LimitInputGroup title="Perfect Pair" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.perfectPair} maxRatio={MAX_RATIOS.perfectPair}
+                    minVal={newLimit.limits.perfectPair.min} maxVal={newLimit.limits.perfectPair.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, perfectPair: { ...prev.limits.perfectPair, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, perfectPair: { ...prev.limits.perfectPair, max: v } } }))}
+                  />
+                  <LimitInputGroup title="Super Six" minChipLimit={newLimit.minChip}
+                    disabled={!(newLimit.website && newLimit.currency)}
+                    minRatio={MIN_RATIOS.superSix} maxRatio={MAX_RATIOS.superSix}
+                    minVal={newLimit.limits.superSix.min} maxVal={newLimit.limits.superSix.max}
+                    baseMinLimit={baseMin}
+                    onMinChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, superSix: { ...prev.limits.superSix, min: v } } }))}
+                    onMaxChange={(v) => setNewLimit(prev => ({ ...prev, limits: { ...prev.limits, superSix: { ...prev.limits.superSix, max: v } } }))}
+                  />
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="flex justify-end pt-4">
+                <button 
+                  onClick={handleCreateSubmit}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-md font-medium hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" /> Save New Limit
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* === SEARCH TAB === */}
+          {activeTab === 'search' && (
+            <div className="space-y-6">
+              {/* Search Bar */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                 <div className="col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Website <span className="text-red-500">*</span></label>
+                  <select 
+                    className={`w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border ${searchFilters.website === '' ? 'text-gray-400' : 'text-gray-800'}`}
+                    value={searchFilters.website}
+                    onChange={(e) => setSearchFilters(prev => ({...prev, website: e.target.value}))}
+                  >
+                    <option value="" disabled className="text-gray-400">Select Website...</option>
+                    {WEBSITES.map(w => <option key={w} value={w} className="text-gray-800">{w}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-1">
+                   <div className="flex flex-col w-full">
+                        <label className="mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Bet Limit ID</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. 10001"
+                            value={searchFilters.id}
+                            onChange={(e) => setSearchFilters(prev => ({...prev, id: e.target.value}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-blue-500 focus:border-blue-500 focus:outline-none focus:ring-2"
+                        />
+                    </div>
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Currency (Optional)</label>
+                  <select 
+                    className={`w-full text-sm border-gray-300 rounded-md shadow-sm p-2 border ${searchFilters.currency === '' ? 'text-gray-400' : 'text-gray-800'}`}
+                    value={searchFilters.currency}
+                    onChange={(e) => setSearchFilters(prev => ({...prev, currency: e.target.value}))}
+                  >
+                    <option value="" disabled className="text-gray-400">Select Currency</option>
+                    <option value="">All Currencies</option>
+                    {CURRENCIES.map(c => <option key={c} value={c} className="text-gray-800">{c}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-1">
+                  <button 
+                    onClick={handleSearch}
+                    className="w-full bg-gray-800 text-white px-4 py-2 rounded-md font-medium hover:bg-gray-900 transition-colors flex justify-center items-center gap-2"
+                  >
+                    <Search className="w-4 h-4" /> Search
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Results Display */}
+              {hasSearched && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-bold text-gray-700 mb-4">Search Results ({searchResults.length})</h3>
+                  
+                  {searchResults.length === 0 ? (
+                     <div className="text-center py-10 bg-white border border-dashed rounded text-gray-400">No results found.</div>
+                  ) : (
+                    <div className="space-y-6">
+                      {searchResults.map((item, idx) => (
+                        <div key={item.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                          {/* Row Header */}
+                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded text-sm">{item.id}</span>
+                              <span className="text-sm font-semibold text-gray-700">{item.website} ({item.currency})</span>
+                              <span className="text-sm text-gray-500 border-l pl-4 border-gray-300">
+                                Min Chip: <span className="text-gray-500 font-semibold">{formatNumber(item.minChip)}</span> {/* Gray font */}
+                              </span>
+                            </div>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-gray-500">Status:</span>
+                                  <button
+                                    onClick={() => handleToggleStatus(idx)}
+                                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${item.status === 'Enable' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                                  >
+                                    {item.status}
+                                  </button>
+                                </div>
+                                  <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => handleSaveRow(idx)}
+                                    className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-blue-700 flex items-center gap-1"
+                                  >
+                                    <Save className="w-3 h-3" /> Save Changes
+                                  </button>
+                                  <button
+                                    onClick={() => handleCopyToCreate(idx)}
+                                    className="bg-gray-700 text-white px-3 py-1 rounded text-xs font-medium hover:bg-gray-800 flex items-center gap-1"
+                                    title="Copy this row to Create New"
+                                  >
+                                    Copy
+                                  </button>
+                                  </div>
+                            </div>
+                          </div>
+
+                          {/* Editable Grid */}
+                          <div className="p-4 overflow-x-auto">
+                            <div className="flex gap-2 min-w-max">
+                               {/* Use the same LimitInputGroup component for modification */}
+                               <LimitInputGroup title="Banker/Player" isMain={true} minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.bp} maxRatio={MAX_RATIOS.bp}
+                                  minVal={item.limits.bp.min} maxVal={item.limits.bp.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'bp', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'bp', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Tie" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.tie} maxRatio={MAX_RATIOS.tie}
+                                  minVal={item.limits.tie.min} maxVal={item.limits.tie.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'tie', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'tie', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Pair" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.pair} maxRatio={MAX_RATIOS.pair}
+                                  minVal={item.limits.pair.min} maxVal={item.limits.pair.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'pair', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'pair', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Bonus" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.bonus} maxRatio={MAX_RATIOS.bonus}
+                                  minVal={item.limits.bonus.min} maxVal={item.limits.bonus.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'bonus', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'bonus', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Big/Small" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.bigSmall} maxRatio={MAX_RATIOS.bigSmall}
+                                  minVal={item.limits.bigSmall.min} maxVal={item.limits.bigSmall.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'bigSmall', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'bigSmall', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Any Pair" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.anyPair} maxRatio={MAX_RATIOS.anyPair}
+                                  minVal={item.limits.anyPair.min} maxVal={item.limits.anyPair.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'anyPair', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'anyPair', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Perfect Pair" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.perfectPair} maxRatio={MAX_RATIOS.perfectPair}
+                                  minVal={item.limits.perfectPair.min} maxVal={item.limits.perfectPair.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'perfectPair', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'perfectPair', 'max'], v)}
+                                />
+                                <LimitInputGroup title="Super Six" minChipLimit={item.minChip}
+                                  minRatio={MIN_RATIOS.superSix} maxRatio={MAX_RATIOS.superSix}
+                                  minVal={item.limits.superSix.min} maxVal={item.limits.superSix.max}
+                                  onMinChange={(v) => handleResultChange(idx, ['limits', 'superSix', 'min'], v)}
+                                  onMaxChange={(v) => handleResultChange(idx, ['limits', 'superSix', 'max'], v)}
+                                />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 新增：建立/修改 Bet Limit 頁面元件實例 */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <BetLimitCreateModifyPage data={data} setData={setData} showNotification={showNotification} />
+      </div>
+
+      {/* 新增：Bet Limit 建立/修改元件（依照附圖欄位，支援單一遊戲/同ID全部遊戲切換）
+      <div className="max-w-7xl mx-auto mb-6">
+        <BetLimitForm />
+      </div> */}
+    </div>
+  );
+};
+
+// Render the app
+ReactDOM.render(<App />, document.getElementById('root'));
+
+// Initialize Lucide icons after render
+setTimeout(() => {
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}, 100);
+  </script>
+</body>
+</html>
