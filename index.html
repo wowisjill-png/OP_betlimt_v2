@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bet Limit Configuration (Baccarat)</title>
+  <title>Bet Limit Configuration</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -219,29 +219,71 @@ const LimitInputGroup = ({ title, minVal, maxVal, onMinChange, onMaxChange, isMa
 };
 
 // --- 新增：建立/修改 Bet Limit 模式切換元件 ---
-const GAME_LIST = [
-  { key: 'baccarat', label: 'Baccarat' },
-  { key: 'roulette', label: 'Roulette' },
-  { key: 'thaihilo', label: 'ThaiHiLo' },
-  { key: 'extrasicbo', label: 'ExtraSicbo' },
-  { key: 'dragonTiger', label: 'Dragon Tiger' },
-  { key: 'fishPrawnCrab', label: 'ThaiFishPrawnCrab' },
-  { key: 'sedie', label: 'Sedie' },
-  { key: 'pokdeng', label: 'PokDeng' },
-];
-
+// --- 重構 Bet Limit 建立/修改元件 ---
 function BetLimitCreateModifyPage({ data, setData, showNotification }) {
-  const [mode, setMode] = React.useState('single'); // 'single' | 'batch'
-  const [selectedGame, setSelectedGame] = React.useState(GAME_LIST[0].key);
+  // 操作模式: 'single' 單一遊戲, 'batch' 全部遊戲
+  const [mode, setMode] = React.useState('single');
+  // 遊戲選擇，預設空值，需使用者主動選擇
+  const [selectedGame, setSelectedGame] = React.useState('');
+  // Bet Limit ID
   const [betLimitId, setBetLimitId] = React.useState('');
-  const [formState, setFormState] = React.useState({}); // { [gameKey]: { ...欄位 } }
+  // 幣別
+  const [currency, setCurrency] = React.useState('');
+  // Quick Auto-Calculation base
+  const [baseMin, setBaseMin] = React.useState('');
+  const [baseMax, setBaseMax] = React.useState('');
+  // 欄位資料
+  const [fields, setFields] = React.useState({}); // { [gameKey]: { [field]: { min, max } } }
 
-  // 切換模式時重置狀態
+  // 進入頁面不預設遊戲，切換模式時重設
   React.useEffect(() => {
-    setFormState({});
+    setSelectedGame('');
+    setFields({});
     setBetLimitId('');
-    setSelectedGame(GAME_LIST[0].key);
+    setCurrency('');
+    setBaseMin('');
+    setBaseMax('');
   }, [mode]);
+
+  // 選擇遊戲時初始化欄位
+  React.useEffect(() => {
+    if (mode === 'single' && selectedGame) {
+      setFields({ [selectedGame]: {} });
+    } else if (mode === 'batch') {
+      const batchFields = {};
+      GAME_CONFIGS.forEach(g => { batchFields[g.key] = {}; });
+      setFields(batchFields);
+    }
+  }, [mode, selectedGame]);
+
+  // Quick Auto-Calculation
+  const handleAutoCalc = (type, value) => {
+    setBaseMin(type === 'min' ? value : baseMin);
+    setBaseMax(type === 'max' ? value : baseMax);
+    const numVal = parseNumber(value);
+    if (mode === 'single' && selectedGame) {
+      const game = GAME_CONFIGS.find(g => g.key === selectedGame);
+      const newFields = { ...fields };
+      game.fields.forEach(f => {
+        const percent = 100; // 實際應根據遊戲欄位百分比設計
+        if (!newFields[selectedGame]) newFields[selectedGame] = {};
+        if (type === 'min') newFields[selectedGame][f.name] = { ...newFields[selectedGame][f.name], min: numVal === '' ? '' : Math.round(numVal * percent / 100) };
+        if (type === 'max') newFields[selectedGame][f.name] = { ...newFields[selectedGame][f.name], max: numVal === '' ? '' : Math.round(numVal * percent / 100) };
+      });
+      setFields(newFields);
+    } else if (mode === 'batch') {
+      const newFields = { ...fields };
+      GAME_CONFIGS.forEach(game => {
+        game.fields.forEach(f => {
+          const percent = 100; // 實際應根據遊戲欄位百分比設計
+          if (!newFields[game.key]) newFields[game.key] = {};
+          if (type === 'min') newFields[game.key][f.name] = { ...newFields[game.key][f.name], min: numVal === '' ? '' : Math.round(numVal * percent / 100) };
+          if (type === 'max') newFields[game.key][f.name] = { ...newFields[game.key][f.name], max: numVal === '' ? '' : Math.round(numVal * percent / 100) };
+        });
+      });
+      setFields(newFields);
+    }
+  };
 
   // 單一遊戲表單
   const renderSingleForm = () => (
@@ -249,32 +291,63 @@ function BetLimitCreateModifyPage({ data, setData, showNotification }) {
       <div className="flex gap-4 items-center">
         <label className="font-bold">選擇遊戲：</label>
         <select value={selectedGame} onChange={e => setSelectedGame(e.target.value)} className="border rounded p-1">
-          {GAME_LIST.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+          <option value="">請選擇遊戲</option>
+          {GAME_CONFIGS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
         </select>
         <label className="font-bold ml-6">Bet Limit ID：</label>
         <input value={betLimitId} onChange={e => setBetLimitId(e.target.value)} className="border rounded p-1 w-32" placeholder="必填" />
+        <label className="font-bold ml-6">幣別：</label>
+        <input value={currency} onChange={e => setCurrency(e.target.value)} className="border rounded p-1 w-24" placeholder="USD" />
       </div>
-      <div className="mt-2">
-        {/* 這裡可根據 selectedGame 顯示對應欄位，範例只顯示一個欄位 */}
-        <input className="border rounded p-1 w-64" placeholder={`請輸入 ${GAME_LIST.find(g=>g.key===selectedGame).label} 限紅...`} />
+      <div className="flex gap-4 items-center">
+        <label className="font-bold">Quick Auto-Calculation：</label>
+        <input className="border rounded p-1 w-24" placeholder="Base Min" value={baseMin} onChange={e => handleAutoCalc('min', e.target.value)} />
+        <input className="border rounded p-1 w-24" placeholder="Base Max" value={baseMax} onChange={e => handleAutoCalc('max', e.target.value)} />
       </div>
+      {selectedGame && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {GAME_CONFIGS.find(g => g.key === selectedGame).fields.map(f => (
+            <div key={f.name} className="flex flex-col border rounded p-2 bg-gray-50">
+              <label className="text-xs font-semibold mb-1">{f.name}</label>
+              <div className="flex gap-2">
+                <input className="border rounded p-1 w-20" placeholder="Min" value={fields[selectedGame]?.[f.name]?.min||''} onChange={e => setFields(fs => ({ ...fs, [selectedGame]: { ...fs[selectedGame], [f.name]: { ...fs[selectedGame]?.[f.name], min: e.target.value } } }))} />
+                <input className="border rounded p-1 w-20" placeholder="Max" value={fields[selectedGame]?.[f.name]?.max||''} onChange={e => setFields(fs => ({ ...fs, [selectedGame]: { ...fs[selectedGame], [f.name]: { ...fs[selectedGame]?.[f.name], max: e.target.value } } }))} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={() => showNotification('單一遊戲存檔（範例）')}>儲存</button>
     </div>
   );
 
-  // 批次表單（同一ID全部遊戲）
+  // 批次表單
   const renderBatchForm = () => (
     <div className="space-y-4">
       <div className="flex gap-4 items-center">
         <label className="font-bold">Bet Limit ID：</label>
         <input value={betLimitId} onChange={e => setBetLimitId(e.target.value)} className="border rounded p-1 w-32" placeholder="必填" />
+        <label className="font-bold ml-6">幣別：</label>
+        <input value={currency} onChange={e => setCurrency(e.target.value)} className="border rounded p-1 w-24" placeholder="USD" />
+        <label className="font-bold ml-6">Quick Auto-Calculation：</label>
+        <input className="border rounded p-1 w-24" placeholder="Base Min" value={baseMin} onChange={e => handleAutoCalc('min', e.target.value)} />
+        <input className="border rounded p-1 w-24" placeholder="Base Max" value={baseMax} onChange={e => handleAutoCalc('max', e.target.value)} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {GAME_LIST.map(game => (
+        {GAME_CONFIGS.map(game => (
           <div key={game.key} className="border rounded p-4 bg-gray-50">
             <div className="font-bold mb-2">{game.label}</div>
-            {/* 這裡可根據遊戲顯示不同欄位，範例只顯示一個欄位 */}
-            <input className="border rounded p-1 w-64" placeholder={`請輸入 ${game.label} 限紅...`} />
+            <div className="grid grid-cols-2 gap-2">
+              {game.fields.map(f => (
+                <div key={f.name} className="flex flex-col">
+                  <label className="text-xs font-semibold mb-1">{f.name}</label>
+                  <div className="flex gap-2">
+                    <input className="border rounded p-1 w-20" placeholder="Min" value={fields[game.key]?.[f.name]?.min||''} onChange={e => setFields(fs => ({ ...fs, [game.key]: { ...fs[game.key], [f.name]: { ...fs[game.key]?.[f.name], min: e.target.value } } }))} />
+                    <input className="border rounded p-1 w-20" placeholder="Max" value={fields[game.key]?.[f.name]?.max||''} onChange={e => setFields(fs => ({ ...fs, [game.key]: { ...fs[game.key], [f.name]: { ...fs[game.key]?.[f.name], max: e.target.value } } }))} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -287,7 +360,7 @@ function BetLimitCreateModifyPage({ data, setData, showNotification }) {
       <div className="flex gap-6 mb-6">
         <label className="font-bold">操作模式：</label>
         <label><input type="radio" name="mode" value="single" checked={mode==='single'} onChange={()=>setMode('single')} /> 單一遊戲</label>
-        <label><input type="radio" name="mode" value="batch" checked={mode==='batch'} onChange={()=>setMode('batch')} /> 同ID全部遊戲</label>
+        <label><input type="radio" name="mode" value="batch" checked={mode==='batch'} onChange={()=>setMode('batch')} /> 全部遊戲</label>
       </div>
       {mode === 'single' ? renderSingleForm() : renderBatchForm()}
     </div>
